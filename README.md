@@ -117,3 +117,67 @@ Please provide:
 - A `Dockerfile` and `docker-compose.yml`.
 - Instructions for setup, database seeding, and running locally.
 - Instructions for running with Docker Compose.
+
+---
+
+## Setup & Development (current progress)
+
+This is being built frontend-first against a mocked API layer. The client is fully functional
+against a large generated in-memory dataset; the real Node/Express API, SQLite persistence, and
+Docker setup described above have not been started yet.
+
+### Prerequisites
+
+- Node.js 20+ (an LTS release, e.g. 22 or 24, is recommended)
+- Yarn, via Corepack: `corepack enable`
+
+### Install
+
+From the repo root:
+
+```bash
+yarn install
+```
+
+### Run the client
+
+```bash
+yarn workspace presight-client start
+```
+
+Starts the Vite dev server and prints the local URL (e.g. `http://localhost:5173`).
+
+### Regenerate the mock dataset
+
+The client ships with a pre-generated, seeded dataset at `client/src/mock/data/users.json`
+(5,000 users across 40 nationalities and 40 hobbies). To regenerate it:
+
+```bash
+yarn workspace presight-client generate:mock
+```
+
+### Run tests
+
+```bash
+yarn workspace presight-client test
+```
+
+Runs the `queryEngine` unit tests (filtering, sorting, pagination, and facet-count logic).
+
+### What's implemented
+
+- React + TypeScript + Tailwind v4 client (Vite).
+- Virtualized, infinitely-scrolling user list (`@tanstack/react-virtual` + `@tanstack/react-query`).
+- Text search, hobby/nationality filters, and sort field/direction — all synced to the URL query
+  string, so reloading or sharing a URL restores the same view.
+- Top-20 hobby/nationality facet counts, computed for the active search/filter state and
+  excluding each facet's own dimension (e.g. hobby counts ignore the current hobby selection).
+- Loading, empty, and error states, including matching skeleton placeholders.
+- A mocked API layer (`client/src/api/`) shaped like a real REST API, backed for now by an
+  in-memory query engine over the generated dataset — the intent is that swapping in the real
+  backend later requires no changes to any caller.
+
+### Not yet implemented
+
+- The real Node/Express API server and SQLite persistence.
+- Docker / `docker-compose` setup.
