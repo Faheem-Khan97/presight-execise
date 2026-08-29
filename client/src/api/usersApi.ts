@@ -1,23 +1,59 @@
-import usersJson from "../mock/data/users.json";
-import { computeFacets, filterUsers, paginateUsers, sortUsers } from "../mock/queryEngine";
-import type { User } from "../types/user";
 import type { FacetsQueryParams, FacetsResult, UsersQueryParams, UsersQueryResult } from "./types";
 
-const users = usersJson as User[];
+const API_BASE_URL: string = import.meta.env.VITE_API_BASE_URL ?? "http://localhost:3001";
 
-const SIMULATED_DELAY_MS = 300;
+type QueryValue = string | number | string[] | undefined;
 
-function delay<T>(value: T): Promise<T> {
-  return new Promise((resolve) => setTimeout(() => resolve(value), SIMULATED_DELAY_MS));
+function buildQueryString(params: Record<string, QueryValue>): string {
+  const search = new URLSearchParams();
+
+  for (const [key, value] of Object.entries(params)) {
+    if (value === undefined || value === "") continue;
+    if (Array.isArray(value)) {
+      if (value.length === 0) continue;
+      search.set(key, value.join(","));
+    } else {
+      search.set(key, String(value));
+    }
+  }
+
+  return search.toString();
 }
 
-export async function fetchUsers(params: UsersQueryParams): Promise<UsersQueryResult> {
-  const filtered = filterUsers(users, params);
-  const sorted = sortUsers(filtered, params.sortField, params.sortDirection);
-  const page = paginateUsers(sorted, params.page, params.pageSize);
-  return delay(page);
+async function fetchJson<T>(path: string, query: string): Promise<T> {
+  const url = `${API_BASE_URL}${path}${query ? `?${query}` : ""}`;
+  const response = await fetch(url);
+
+  if (!response.ok) {
+    throw new Error(`Request to ${path} failed with status ${response.status}`);
+  }
+
+  return response.json() as Promise<T>;
 }
 
-export async function fetchFacets(params: FacetsQueryParams): Promise<FacetsResult> {
-  return delay(computeFacets(users, params));
+export async function fetchUsers({
+  search,
+  nationalities,
+  hobbies,
+  sortField,
+  sortDirection,
+  page,
+  pageSize,
+}: UsersQueryParams): Promise<UsersQueryResult> {
+  const query = buildQueryString({
+    q: search,
+    sortBy: sortField,
+    sortDir: sortDirection,
+    nationalities,
+    hobbies,
+    page,
+    pageSize,
+  });
+
+  return fetchJson<UsersQueryResult>("/api/users", query);
+}
+
+export async function fetchFacets({ search, nationalities, hobbies }: FacetsQueryParams): Promise<FacetsResult> {
+  const query = buildQueryString({ q: search, nationalities, hobbies });
+  return fetchJson<FacetsResult>("/api/facets", query);
 }
