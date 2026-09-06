@@ -1,0 +1,22 @@
+services:
+  server:
+    build: ./server
+    ports:
+      - "3001:3001"
+    volumes:
+      - sqlite-data:/app/data
+    environment:
+      - PORT=3001
+
+  client:
+    build:
+      context: ./client
+      args:
+        VITE_API_BASE_URL: http://localhost:3001
+    ports:
+      - "8080:80"
+    depends_on:
+      - server
+
+volumes:
+  sqlite-data:

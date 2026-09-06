@@ -91,6 +91,11 @@ export function seed(db: Database.Database = getDb()): void {
 }
 
 if (require.main === module) {
-  seed();
+  const db = getDb();
+  seed(db);
+  // Fold the WAL back into the main file so app.db is a complete, self-contained snapshot —
+  // needed because the Docker build bakes this file into the image without its -wal/-shm sidecars.
+  db.pragma("wal_checkpoint(TRUNCATE)");
+  db.close();
   console.log(`Seeded ${USER_COUNT} users.`);
 }

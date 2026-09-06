@@ -120,18 +120,15 @@ Please provide:
 
 ---
 
-## Setup & Development (current progress)
-
-This is being built frontend-first against a mocked API layer. The client is fully functional
-against a large generated in-memory dataset; the real Node/Express API, SQLite persistence, and
-Docker setup described above have not been started yet.
+## Setup & Development
 
 ### Prerequisites
 
-- Node.js 20+ (an LTS release, e.g. 22 or 24, is recommended)
+- Node.js 22+ (required by `better-sqlite3`)
 - Yarn, via Corepack: `corepack enable`
+- Docker Desktop, if running via Docker Compose
 
-### Install
+### Install (client + server)
 
 From the repo root:
 
@@ -139,45 +136,86 @@ From the repo root:
 yarn install
 ```
 
+### Configuration (optional)
+
+Both workspaces run with working defaults and need no configuration. To override them, copy the
+example env file in each workspace and edit as needed:
+
+```bash
+cp server/.env.example server/.env   # PORT, DATABASE_PATH
+cp client/.env.example client/.env   # VITE_API_BASE_URL
+```
+
+### Run the server
+
+```bash
+yarn workspace presight-server seed   # creates and seeds server/data/app.db (5,000 users)
+yarn workspace presight-server dev    # starts the API on http://localhost:3001
+```
+
+`seed` only needs to be run once — it creates the schema and seeds `server/data/app.db`. It's
+safe to re-run any time you want to reset the dataset back to its original seeded state.
+
+`dev` stays running in the foreground — keep it in its own terminal.
+
 ### Run the client
+
+In a **second terminal**:
 
 ```bash
 yarn workspace presight-client start
 ```
 
-Starts the Vite dev server and prints the local URL (e.g. `http://localhost:5173`).
-
-### Regenerate the mock dataset
-
-The client ships with a pre-generated, seeded dataset at `client/src/mock/data/users.json`
-(5,000 users across 40 nationalities and 40 hobbies). To regenerate it:
-
-```bash
-yarn workspace presight-client generate:mock
-```
+Starts the Vite dev server (e.g. `http://localhost:5173`), calling the API at
+`http://localhost:3001` by default. Override with a `VITE_API_BASE_URL` env var if the API runs
+elsewhere. This also stays running in the foreground.
 
 ### Run tests
 
 ```bash
-yarn workspace presight-client test
+yarn workspace presight-client test   # hooks + component tests (React Testing Library)
+yarn workspace presight-server test   # filter/sort/pagination/facet semantics, against real SQLite
 ```
 
-Runs the `queryEngine` unit tests (filtering, sorting, pagination, and facet-count logic).
+## Running with Docker Compose
 
-### What's implemented
+From the repo root, with Docker Desktop running:
 
-- React + TypeScript + Tailwind v4 client (Vite).
-- Virtualized, infinitely-scrolling user list (`@tanstack/react-virtual` + `@tanstack/react-query`).
-- Text search, hobby/nationality filters, and sort field/direction — all synced to the URL query
-  string, so reloading or sharing a URL restores the same view.
-- Top-20 hobby/nationality facet counts, computed for the active search/filter state and
-  excluding each facet's own dimension (e.g. hobby counts ignore the current hobby selection).
-- Loading, empty, and error states, including matching skeleton placeholders.
-- A mocked API layer (`client/src/api/`) shaped like a real REST API, backed for now by an
-  in-memory query engine over the generated dataset — the intent is that swapping in the real
-  backend later requires no changes to any caller.
+```bash
+docker compose up --build
+```
 
-### Not yet implemented
+This builds and starts two containers:
 
-- The real Node/Express API server and SQLite persistence.
-- Docker / `docker-compose` setup.
+- **server** — the API on `http://localhost:3001`. On first start, it automatically seeds a
+  fresh SQLite database (baked into the image at build time) into a named Docker volume
+  (`sqlite-data`), so no manual seed step is needed. Subsequent restarts reuse the same
+  persisted data.
+- **client** — the built React app, served by nginx on `http://localhost:8080`.
+
+To stop: `docker compose down` (add `-v` to also delete the persisted database volume and start
+fresh next time).
+
+If port `3001` or `8080` is already in use on your machine, change the host-side port in
+`docker-compose.yml` (the left number in `"HOST:CONTAINER"`) — and if you change the server's
+port, also update the `VITE_API_BASE_URL` build arg for `client` to match, since the browser
+calls that URL directly and it's baked into the client bundle at build time.
+
+## What's implemented
+
+- **Client**: React + TypeScript + Tailwind v4 (Vite). Virtualized, infinitely-scrolling user
+  list (`@tanstack/react-virtual` + `@tanstack/react-query`). Text search, hobby/nationality
+  filters, and sort field/direction — all synced to the URL query string, so reloading or
+  sharing a URL restores the same view. Loading, empty, and error states with matching skeleton
+  placeholders. Tested with Vitest + React Testing Library (URL-sync hook, debounce hook, and
+  card rendering, including the avatar-load-failure fallback).
+- **Server**: Node/Express + `better-sqlite3`, fully normalized schema (`users`, `nationalities`,
+  `hobbies`, `user_hobbies`). Hobby filters use relational division (match-all semantics);
+  nationality filters use OR semantics. Top-20 hobby/nationality facet counts are computed for
+  the active search/filter state, each excluding its own dimension's filter. Deterministic
+  sorting with an `id` tie-breaker; offset-based pagination with correct `hasMore`/`total`
+  metadata. Validated with `zod`; 21 tests covering the same filter/sort/pagination/facet
+  semantics as the client, run against a real seeded SQLite database.
+- **Docker**: multi-stage builds for both images; the server's database is seeded once at build
+  time (not at runtime, so `@faker-js/faker` never ships in the production image) and installed
+  into a persistent volume on first container start.
