@@ -9,6 +9,8 @@ interface UserListProps {
   isFetchingNextPage: boolean;
   onLoadMore: () => void;
   scrollElementRef: RefObject<HTMLElement | null>;
+  /** Passed through so each card can surface the hobbies being filtered on. */
+  selectedHobbies: string[];
 }
 
 const ESTIMATED_ROW_HEIGHT = 112;
@@ -20,6 +22,7 @@ export function UserList({
   isFetchingNextPage,
   onLoadMore,
   scrollElementRef,
+  selectedHobbies,
 }: UserListProps) {
   const rowCount = hasNextPage ? users.length + 1 : users.length;
 
@@ -60,7 +63,7 @@ export function UserList({
                 Loading more...
               </div>
             ) : (
-              <UserCard user={user} />
+              <UserCard user={user} selectedHobbies={selectedHobbies} />
             )}
           </div>
         );

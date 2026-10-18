@@ -11,12 +11,21 @@ interface FilterInput {
   hobbies?: string[];
 }
 
+/**
+ * Collapses whitespace runs to a single space so "Amara   Okafor" still matches the
+ * "first last" form the SQL builds, and so spacing variants cannot fan out into
+ * different result sets.
+ */
+function normalizeSearch(search: string | undefined): string | null {
+  const normalized = search?.trim().replace(/\s+/g, " ");
+  return normalized ? normalized : null;
+}
+
 function resolveFilters(db: Database.Database, { search, nationalities, hobbies }: FilterInput): ResolvedFilters {
   const reference = loadReferenceData(db);
-  const trimmedSearch = search?.trim();
 
   return {
-    search: trimmedSearch ? trimmedSearch : null,
+    search: normalizeSearch(search),
     nationalityIds: resolveNames(nationalities ?? [], reference.nationalityIdByName),
     hobbyIds: resolveNames(hobbies ?? [], reference.hobbyIdByName),
   };

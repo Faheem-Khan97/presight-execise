@@ -1,8 +1,9 @@
 import { useRef, useState } from "react";
-import { useDebouncedValue } from "./hooks/useDebouncedValue";
+import { useSearchDraft } from "./hooks/useSearchDraft";
 import { useFacetsQuery } from "./hooks/useFacetsQuery";
 import { useUrlFilters } from "./hooks/useUrlFilters";
 import { useUsersInfiniteQuery } from "./hooks/useUsersInfiniteQuery";
+import { toSearchQuery } from "./utils/search";
 import { Header } from "./components/layout/Header";
 import { Sidebar } from "./components/layout/Sidebar";
 import { SearchInput } from "./components/filters/SearchInput";
@@ -29,12 +30,17 @@ function App() {
   } = useUrlFilters();
   const [isFiltersOpen, setFiltersOpen] = useState(false);
 
-  const debouncedSearchValue = useDebouncedValue(searchValue, SEARCH_DEBOUNCE_MS);
+  const { draft: searchDraft, setDraft: setSearchDraft, search } = useSearchDraft(
+    searchValue,
+    setSearchValue,
+    SEARCH_DEBOUNCE_MS,
+  );
+  const searchQuery = toSearchQuery(search);
 
   const scrollContainerRef = useRef<HTMLElement>(null);
 
   const usersQuery = useUsersInfiniteQuery({
-    search: debouncedSearchValue,
+    search: searchQuery,
     nationalities: selectedNationalities,
     hobbies: selectedHobbies,
     sortField,
@@ -42,7 +48,7 @@ function App() {
   });
 
   const facetsQuery = useFacetsQuery({
-    search: debouncedSearchValue,
+    search: searchQuery,
     nationalities: selectedNationalities,
     hobbies: selectedHobbies,
   });
@@ -56,7 +62,7 @@ function App() {
           <h1 className="text-lg font-semibold text-slate-900">Presight User Directory</h1>
           <div className="flex flex-col gap-4 sm:flex-row sm:items-center justify-between">
             <div className="min-w-0 flex-1">
-              <SearchInput value={searchValue} onChange={setSearchValue} />
+              <SearchInput value={searchDraft} onChange={setSearchDraft} />
             </div>
             <SortControls
               sortField={sortField}
@@ -103,6 +109,7 @@ function App() {
                 isFetchingNextPage={usersQuery.isFetchingNextPage}
                 onLoadMore={() => usersQuery.fetchNextPage()}
                 scrollElementRef={scrollContainerRef}
+                selectedHobbies={selectedHobbies}
               />
             )}
           </div>

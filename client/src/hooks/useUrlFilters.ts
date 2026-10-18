@@ -34,7 +34,7 @@ export function useUrlFilters() {
 
   function setSearchValue(value: string) {
     updateParams((params) => {
-      if (value) params.set("q", value);
+      if (value.trim().length) params.set("q", value);
       else params.delete("q");
     });
   }
