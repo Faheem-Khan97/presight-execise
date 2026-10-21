@@ -80,6 +80,39 @@ describe("getUsers - filtering", () => {
     expect(result.data.map((u) => u.id)).toEqual([1, 4]);
   });
 
+  it("matches a full name written first-last", () => {
+    const result = query({ search: "Amara Okafor" });
+    expect(result.data.map((u) => u.id)).toEqual([1]);
+  });
+
+  it("matches a full name written last-first", () => {
+    const result = query({ search: "Okafor Amara" });
+    expect(result.data.map((u) => u.id)).toEqual([1]);
+  });
+
+  it("matches a full name case-insensitively and on a partial tail", () => {
+    expect(query({ search: "amara okaf" }).data.map((u) => u.id)).toEqual([1]);
+    expect(query({ search: "LUCAS SILVA" }).data.map((u) => u.id)).toEqual([2]);
+  });
+
+  it("tolerates extra whitespace inside and around a full name", () => {
+    expect(query({ search: "  Amara   Okafor  " }).data.map((u) => u.id)).toEqual([1]);
+  });
+
+  it("does not match a full name belonging to two different people", () => {
+    // Amara Diallo and Chidi Okafor exist, but "Amara Chidi" is nobody.
+    expect(query({ search: "Amara Chidi" }).total).toBe(0);
+  });
+
+  it("keeps single-word search from straddling the first/last boundary", () => {
+    // "aokafor" would match the bare concatenation "AmaraOkafor" if the space were missing.
+    expect(query({ search: "aokafor" }).total).toBe(0);
+  });
+
+  it("still returns both namesakes for a single-word search", () => {
+    expect(query({ search: "Amara" }).data.map((u) => u.id)).toEqual([1, 3]);
+  });
+
   it("matches nationalities with OR semantics", () => {
     const result = query({ nationalities: ["Brazilian", "Turkish"] });
     expect(result.data.map((u) => u.id).sort((a, b) => a - b)).toEqual([2, 5]);
